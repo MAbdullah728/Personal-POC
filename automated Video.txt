@@ -1,0 +1,156 @@
+# Project Context
+
+I currently create fast-paced YouTube Shorts manually in CapCut. I have a reusable CapCut template where the canvas, positions, sizes, subtitles, labels, stickman placement, and general visual style are already established. My current workflow is: generate narration using ElevenLabs → remove silent sections → speed the narration up to approximately 1.2× → change a stickman between three poses (looking left, looking right, looking straight) according to the script → replace/add images at predetermined positions and sizes → add small background sound effects → add labels to images → add subtitles → export/compress the final video. A typical Short is around 40–52 seconds. I currently use the free ElevenLabs plan, so I want to keep voice generation manual initially and avoid requiring an ElevenLabs API key unless we later decide it is worthwhile. I also want to keep final compression/export manual during the initial testing phase.
+
+# Main Goal
+
+Build a local, reliable automation system that can reproduce my existing CapCut editing workflow without controlling or automating the CapCut UI. CapCut should be treated as the visual reference/template, while the actual video should eventually be generated programmatically using tools such as Python, FFmpeg, Pillow, and subtitle-rendering technologies. The output should visually match my existing CapCut template as closely as possible, including the exact 9:16 layout, positions, sizes, stickman graphics, image placement, labels, subtitles, audio timing, SFX, and animations. The target output should support 4K vertical video (2160×3840) at 60 FPS, assuming the user's hardware can render it efficiently.
+
+# Recommended Architecture
+
+The system should be designed as a deterministic template-based video renderer.
+
+Input:
+
+1. A completed ElevenLabs narration file.
+2. A structured script/timeline describing what happens during each sentence/scene.
+3. Images/assets selected for the Short.
+4. Existing stickman assets:
+
+   * straight
+   * left
+   * right
+5. Existing sound effects.
+6. A template configuration containing all fixed coordinates, dimensions, fonts, timing rules, animation settings, and styling.
+
+Processing pipeline:
+
+ElevenLabs audio
+→ silence removal / pause processing
+→ approximately 1.2× speed adjustment
+→ determine final narration timing
+→ create timeline
+→ place stickman states
+→ place images
+→ generate image labels
+→ generate subtitles
+→ place SFX
+→ composite all layers
+→ render 4K/60 FPS MP4
+
+The system should use the narration timing as the primary timing source rather than relying on manually entered CapCut timestamps whenever possible.
+
+# Important Design Principle
+
+Do NOT initially add unnecessary AI/LLM complexity.
+
+Version 1 should be deterministic and predictable. The user should be able to specify something such as:
+
+{
+"text": "The building looked completely normal.",
+"stickman": "straight",
+"image": null
+}
+
+{
+"text": "But then he looked to his left.",
+"stickman": "left",
+"image": "building.png",
+"label": "The building"
+}
+
+{
+"text": "And he noticed something strange.",
+"stickman": "right",
+"image": "closeup.png",
+"label": "The strange detail",
+"sfx": "pop.wav"
+}
+
+The renderer should turn this structured information into the finished video automatically.
+
+Only after Version 1 reliably reproduces the existing CapCut result should we consider adding an LLM/AI layer that automatically interprets the script and decides things such as stickman direction, image selection, labels, SFX, and scene changes.
+
+# Development Strategy
+
+Build this incrementally.
+
+Phase 1:
+Reproduce ONE existing Short as accurately as possible using the programmatic renderer. Compare the generated video against the original CapCut version and fix differences in coordinates, scaling, fonts, timing, audio processing, subtitles, and animations.
+
+Phase 2:
+Convert the hardcoded recreation into a reusable template/configuration system so the same renderer can generate different Shorts.
+
+Phase 3:
+Automate narration processing, including silence/pause removal and 1.2× speed processing.
+
+Phase 4:
+Automate stickman state changes, image placement, labels, subtitles, and SFX from structured scene data.
+
+Phase 5:
+Create a simple local interface where the user can provide a script, narration, and images and click "Generate Video."
+
+Phase 6:
+Optionally introduce an LLM layer to interpret scripts and automatically produce the structured timeline.
+
+Phase 7:
+Only after the system has been tested extensively should we consider automating final compression/export settings or other downstream processes.
+
+# ElevenLabs Constraint
+
+The user currently uses the free ElevenLabs plan. Do not assume an API subscription is available. The first version should accept a manually downloaded ElevenLabs audio file. If ElevenLabs API integration is later added, it should be optional.
+
+# CapCut Constraint
+
+Do NOT build a bot that automates CapCut's UI through mouse/keyboard simulation, browser automation, or other methods intended to mimic human interaction. The objective is to recreate the visual template in a standalone/local renderer rather than automate CapCut itself. This makes the system more reliable and avoids depending on CapCut's changing UI or potentially violating service restrictions around automated interaction.
+
+# Hardware/Performance
+
+Before estimating render time, inspect the user's PC specifications (CPU, GPU, RAM, storage). Prefer GPU hardware encoding where appropriate, such as NVENC on compatible NVIDIA hardware. The target is 4K vertical 60 FPS, but the renderer should also support lower-resolution/lower-FPS preview renders so the user can quickly test edits before producing the final high-quality output.
+
+Ideally provide two modes:
+
+PREVIEW:
+1080×1920, potentially lower quality, optimized for fast iteration.
+
+FINAL:
+2160×3840, 60 FPS, high-quality encoding.
+
+# Expected User Experience
+
+Eventually the workflow should be approximately:
+
+Write script
+→ generate/download ElevenLabs voice
+→ add/select required images
+→ open Short Generator
+→ select narration + script/assets
+→ click Generate
+→ receive preview
+→ inspect
+→ generate final 4K/60 version
+→ manually compress/upload initially.
+
+The long-term goal is to reduce the user's current manual editing workload to mainly writing the script, providing/reviewing assets, checking the generated Short, and eventually uploading it.
+
+# What the Next Agent Should Ask For
+
+Before implementing the complete system, ask the user for:
+
+1. PC specifications or a Task Manager Performance screenshot showing CPU, GPU, RAM, and storage.
+2. One completed Short as an MP4.
+3. The corresponding CapCut project/template if it can be shared.
+4. The exact script used for that Short.
+5. The original ElevenLabs audio before manual silence removal/speed adjustment.
+6. The three stickman assets.
+7. The images used in the Short.
+8. Any recurring SFX.
+9. If possible, screenshots of the CapCut timeline/layers and important property panels showing exact positions, dimensions, fonts, animations, and timing.
+
+The agent should then first determine how the current template is constructed and create a technical specification for the renderer before attempting the full automation.
+
+# Critical Question
+
+Determine how the user currently decides which image/stickman/label belongs to each sentence or section of the script. If this information is already manually specified, preserve that workflow in Version 1. If it is not specified, design a simple structured scene format that allows the user to provide it without needing to manually enter timestamps.
+
+The goal is NOT to make a generic video editor. The goal is to build a highly specialized automated renderer for this specific YouTube Shorts format, optimized for consistency, speed, and repeatability.
