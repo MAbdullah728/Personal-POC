@@ -1,0 +1,11 @@
+# Phase 0 app config. Secrets (API keys) live in backend/.env, never here.
+spot:
+  network: testnet
+futures:
+  network: testnet
+
+symbols:
+  - BTCUSDT
+
+log_dir: logs
+log_level: INFO
